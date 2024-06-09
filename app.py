@@ -3,7 +3,7 @@ import pathlib
 
 import fastapi
 
-import ntpro_server
+from server.ntpro_server import ntpro_server
 
 api = fastapi.FastAPI()
 server = ntpro_server.NTProServer()
@@ -30,4 +30,3 @@ async def websocket_endpoint(websocket: fastapi.WebSocket):
         await server.serve(websocket)
     except fastapi.WebSocketDisconnect:
         server.disconnect(websocket)
-

@@ -4,7 +4,7 @@ import decimal
 import uuid
 from typing import TypeVar, TYPE_CHECKING
 
-import bidict as bidict
+import bidict
 import fastapi
 import pydantic
 
@@ -20,12 +20,18 @@ class ClientEnvelope(Envelope):
     message_type: enums.ClientMessageType
 
     def get_parsed_message(self):
-        return _CLIENT_MESSAGE_TYPE_BY_CLASS.inverse[self.message_type].parse_obj(self.message)
+        return _CLIENT_MESSAGE_TYPE_BY_CLASS.inverse[self.message_type].parse_obj(
+            self.message
+        )
 
 
 class ClientMessage(Message):
-    async def process(self: ClientMessageT, server: NTProServer, websocket: fastapi.WebSocket) -> ServerMessageT:
-        return await _MESSAGE_PROCESSOR_BY_CLASS[self.__class__](server, websocket, self)
+    async def process(
+        self: ClientMessageT, server: NTProServer, websocket: fastapi.WebSocket
+    ) -> ServerMessageT:
+        return await _MESSAGE_PROCESSOR_BY_CLASS[self.__class__](
+            server, websocket, self
+        )
 
     def get_type(self: ClientMessageT) -> enums.ClientMessageType:
         return _CLIENT_MESSAGE_TYPE_BY_CLASS[self.__class__]
@@ -42,8 +48,8 @@ class UnsubscribeMarketData(ClientMessage):
 class PlaceOrder(ClientMessage):
     instrument: enums.Instrument
     side: enums.OrderSide
-    amount: pydantic.condecimal(gt=decimal.Decimal())
-    price: pydantic.condecimal(gt=decimal.Decimal())
+    amount: pydantic.condecimal(gt=decimal.Decimal(0))
+    price: pydantic.condecimal(gt=decimal.Decimal(0))
 
 
 _MESSAGE_PROCESSOR_BY_CLASS = {
@@ -51,9 +57,11 @@ _MESSAGE_PROCESSOR_BY_CLASS = {
     UnsubscribeMarketData: message_processors.unsubscribe_market_data_processor,
     PlaceOrder: message_processors.place_order_processor,
 }
-_CLIENT_MESSAGE_TYPE_BY_CLASS = bidict.bidict({
-    SubscribeMarketData: enums.ClientMessageType.subscribe_market_data,
-    UnsubscribeMarketData: enums.ClientMessageType.unsubscribe_market_data,
-    PlaceOrder: enums.ClientMessageType.place_order,
-})
-ClientMessageT = TypeVar('ClientMessageT', bound=ClientMessage)
+_CLIENT_MESSAGE_TYPE_BY_CLASS = bidict.bidict(
+    {
+        SubscribeMarketData: enums.ClientMessageType.subscribe_market_data,
+        UnsubscribeMarketData: enums.ClientMessageType.unsubscribe_market_data,
+        PlaceOrder: enums.ClientMessageType.place_order,
+    }
+)
+ClientMessageT = TypeVar("ClientMessageT", bound=ClientMessage)

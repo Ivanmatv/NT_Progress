@@ -1,5 +1,7 @@
 import fastapi
+
 import pydantic
+
 import starlette.datastructures
 
 from server.models import client_messages, server_messages, base
@@ -14,6 +16,8 @@ class NTProServer:
         self.connections[websocket.client] = base.Connection()
 
     def disconnect(self, websocket: fastapi.WebSocket):
+        for task in self.connections[websocket.client].subscriptions:
+            task.cancel()
         self.connections.pop(websocket.client)
 
     async def serve(self, websocket: fastapi.WebSocket):
@@ -21,17 +25,16 @@ class NTProServer:
             raw_envelope = await websocket.receive_json()
 
             try:
-                envelope = client_messages.ClientEnvelope.parse_obj(raw_envelope)
+                envelope = client_messages.ClientEnvelope.model_validate(raw_envelope)
                 message = envelope.get_parsed_message()
             except pydantic.ValidationError as ex:
                 await self.send(server_messages.ErrorInfo(reason=str(ex)), websocket)
                 continue
 
             response = await message.process(self, websocket)
-
             await self.send(response, websocket)
 
     @staticmethod
     async def send(message: base.MessageT, websocket: fastapi.WebSocket):
         await websocket.send_json(server_messages.ServerEnvelope(message_type=message.get_type(),
-                                                                 message=message.dict()).dict())
+                                                                 message=message.model_dump()).model_dump())

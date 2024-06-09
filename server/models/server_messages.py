@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TypeVar
 
-import bidict as bidict
+import bidict
 
 from server import enums
 from server.models.base import Envelope, Message, Quote
@@ -19,7 +19,8 @@ class ErrorInfo(ServerMessage):
 
 
 class SuccessInfo(ServerMessage):
-    ...
+    subscription_id: uuid.UUID | None = None
+    order_id: uuid.UUID | None = None
 
 
 class ExecutionReport(ServerMessage):
