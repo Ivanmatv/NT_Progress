@@ -1,0 +1,33 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.ticker {
+    display: flex;
+    gap: 10px;
+}
+
+.ticker div {
+    margin: 5px;
+}
+
+.orders {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.orders th, .orders td {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+
+.orders th {
+    background-color: #f2f2f2;
+}

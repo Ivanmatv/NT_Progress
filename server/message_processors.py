@@ -3,14 +3,16 @@ from __future__ import annotations
 import asyncio
 import decimal
 import uuid
+
 from typing import TYPE_CHECKING
-
-from . import enums
-
-from server.models import server_messages, client_messages, base
+from server.models import server_messages
+from server.models.base import Quote
+from enums import OrderStatus
 
 if TYPE_CHECKING:
     import fastapi
+
+    from server.models import client_messages
     from server.ntpro_server import NTProServer
 
 
@@ -19,15 +21,33 @@ async def subscribe_market_data_processor(
         websocket: fastapi.WebSocket,
         message: client_messages.SubscribeMarketData,
 ):
-    # Simulating market data update task
+    from server.models import server_messages
+
     subscription_id = uuid.uuid4()
-    task = asyncio.create_task(send_market_data_updates(
-        server,
-        websocket,
-        subscription_id,
-        message.instrument)
-                               )
-    server.connections[websocket.client].subscriptions.append(task)
+    connection = server.connections[websocket.client]
+
+    async def send_quotes():
+        while True:
+            # Simulate sending market data updates
+            await websocket.send_json(server_messages.ServerEnvelope(
+                message_type=server_messages.ServerMessageT.market_data_update,
+                message=server_messages.MarketDataUpdate(
+                    subscription_id=subscription_id,
+                    instrument=message.instrument,
+                    quotes=[
+                        Quote(
+                            bid=decimal.Decimal('1.1000'),
+                            offer=decimal.Decimal('1.2000'),
+                            min_amount=decimal.Decimal('1000'),
+                            max_amount=decimal.Decimal('10000'),
+                        )
+                    ]
+                ).dict()
+            ).dict())
+            await asyncio.sleep(1)  # Simulate data update interval
+
+    task = asyncio.create_task(send_quotes())
+    connection.subscriptions.append(task)
 
     return server_messages.SuccessInfo(subscription_id=subscription_id)
 
@@ -37,12 +57,13 @@ async def unsubscribe_market_data_processor(
         websocket: fastapi.WebSocket,
         message: client_messages.UnsubscribeMarketData,
 ):
-    for task in server.connections[websocket.client].subscriptions:
-        if not task.done() and task.get_name() == str(message.subscription_id):
-            task.cancel()
-            break
+    connection = server.connections[websocket.client]
+    for task in connection.subscriptions:
+        task.cancel()
 
-    return server_messages.SuccessInfo(subscription_id=message.subscription_id)
+    connection.subscriptions = []
+
+    return server_messages.SuccessInfo()
 
 
 async def place_order_processor(
@@ -50,32 +71,23 @@ async def place_order_processor(
         websocket: fastapi.WebSocket,
         message: client_messages.PlaceOrder,
 ):
-    # Simulate order placement and return execution report
+    from server.models import server_messages
+
     order_id = uuid.uuid4()
-    order_status = enums.OrderStatus.active
-    return server_messages.ExecutionReport(
-        order_id=order_id,
-        order_status=order_status
-    )
+    connection = server.connections[websocket.client]
 
+    order = {
+        "instrument": message.instrument,
+        "side": message.side,
+        "amount": message.amount,
+        "price": message.price,
+        "status": OrderStatus.active,
+    }
 
-async def send_market_data_updates(
-    server: NTProServer,
-    websocket: fastapi.WebSocket,
-    subscription_id: uuid.UUID,
-    instrument: enums.Instrument
-):
-    while True:
-        await asyncio.sleep(1)
-        quotes = [
-                 base.Quote(bid=decimal.Decimal("1.1000"),
-                 offer=decimal.Decimal("1.1002"),
-                 min_amount=decimal.Decimal("1000"),
-                 max_amount=decimal.Decimal("10000"))
-        ]
-        update = server_messages.MarketDataUpdate(
-            subscription_id=subscription_id,
-            instrument=instrument,
-            quotes=quotes
-        )
-        await server.send(update, websocket)
+    connection.orders[order_id] = order
+
+    # Simulate order execution
+    await asyncio.sleep(1)
+    order["status"] = OrderStatus.filled
+
+    return server_messages.ExecutionReport(order_id=order_id, order_status=order["status"])

@@ -3,10 +3,22 @@ from __future__ import annotations
 import abc
 import asyncio
 import decimal
-from typing import TypeVar
+import uuid
 
 import pydantic
 
+from typing import TypeVar
+from .client_messages import (
+    PlaceOrder,
+    SubscribeMarketData,
+    UnsubscribeMarketData
+)
+from .server_messages import (
+    ErrorInfo,
+    ExecutionReport,
+    MarketDataUpdate,
+    SuccessInfo
+)
 from server.enums import ClientMessageType, ServerMessageType
 
 
@@ -28,7 +40,8 @@ class Envelope(pydantic.BaseModel, abc.ABC):
     message: dict
 
     @abc.abstractmethod
-    def get_parsed_message(self): ...
+    def get_parsed_message(self):
+        pass
 
 
 class Message(pydantic.BaseModel, abc.ABC):
@@ -37,7 +50,28 @@ class Message(pydantic.BaseModel, abc.ABC):
         extra = pydantic.Extra.forbid
 
     @abc.abstractmethod
-    def get_type(self): ...
+    def get_type(self):
+        pass
+
+
+class ClientEnvelope(Envelope):
+    def get_parsed_message(self):
+        return _CLIENT_MESSAGE_TYPE_BY_CLASS.inverse[self.message_type].parse_obj(self.message)
+
+
+class ServerEnvelope(Envelope):
+    def get_parsed_message(self):
+        return _SERVER_MESSAGE_TYPE_BY_CLASS.inverse[self.message_type].parse_obj(self.message)
+
+
+class ClientMessage(Message):
+    def get_type(self):
+        return _CLIENT_MESSAGE_TYPE_BY_CLASS[self.__class__]
+
+
+class ServerMessage(Message):
+    def get_type(self):
+        return _SERVER_MESSAGE_TYPE_BY_CLASS[self.__class__]
 
 
 class Connection(pydantic.BaseModel):
@@ -45,6 +79,7 @@ class Connection(pydantic.BaseModel):
         arbitrary_types_allowed = True
 
     subscriptions: list[asyncio.Task] = []
+    orders: dict[uuid.UUID, dict] = {}
 
 
 class Quote(pydantic.BaseModel):
@@ -55,3 +90,17 @@ class Quote(pydantic.BaseModel):
 
 
 MessageT = TypeVar('MessageT', bound=Message)
+
+
+_CLIENT_MESSAGE_TYPE_BY_CLASS = dict.bidict({
+    SubscribeMarketData: ClientMessageType.subscribe_market_data,
+    UnsubscribeMarketData: ClientMessageType.unsubscribe_market_data,
+    PlaceOrder: ClientMessageType.place_order,
+})
+
+_SERVER_MESSAGE_TYPE_BY_CLASS = dict.bidict({
+    SuccessInfo: ServerMessageType.success,
+    ErrorInfo: ServerMessageType.error,
+    ExecutionReport: ServerMessageType.execution_report,
+    MarketDataUpdate: ServerMessageType.market_data_update,
+})

@@ -4,35 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trading Application</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        .container {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        .ticker {
-            display: flex;
-            gap: 10px;
-        }
-        .ticker div {
-            margin: 5px;
-        }
-        .orders {
-            border-collapse: collapse;
-            width: 100%;
-        }
-        .orders th, .orders td {
-            border: 1px solid #ddd;
-            padding: 8px;
-        }
-        .orders th {
-            background-color: #f2f2f2;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
     <div class="container">
@@ -60,6 +32,7 @@
             <div>
                 <button onclick="placeOrder('buy')">Buy</button>
                 <button onclick="placeOrder('sell')">Sell</button>
+                <button onclick="downloadCSV()">Download CSV</button>
             </div>
         </div>
         <table class="orders">
@@ -149,7 +122,27 @@
             ordersBody.appendChild(row);
         }
 
+        function downloadCSV() {
+            const rows = Array.from(document.querySelectorAll("table.orders tr"));
+            const csvContent = rows.map(row => {
+                const cells = Array.from(row.querySelectorAll("th, td"));
+                return cells.map(cell => cell.textContent).join(",");
+            }).join("\n");
+
+            const blob = new Blob([csvContent], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.setAttribute("href", url);
+            a.setAttribute("download", "orders.csv");
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
         document.getElementById('instrument').addEventListener('change', subscribeMarketData);
+
+        // Initialize WebSocket connection
+        connectWebSocket();
     </script>
 </body>
 </html>
+

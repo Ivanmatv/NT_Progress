@@ -16,8 +16,6 @@ class NTProServer:
         self.connections[websocket.client] = base.Connection()
 
     def disconnect(self, websocket: fastapi.WebSocket):
-        for task in self.connections[websocket.client].subscriptions:
-            task.cancel()
         self.connections.pop(websocket.client)
 
     async def serve(self, websocket: fastapi.WebSocket):
@@ -32,9 +30,10 @@ class NTProServer:
                 continue
 
             response = await message.process(self, websocket)
+
             await self.send(response, websocket)
 
     @staticmethod
     async def send(message: base.MessageT, websocket: fastapi.WebSocket):
         await websocket.send_json(server_messages.ServerEnvelope(message_type=message.get_type(),
-                                                                 message=message.model_dump()).model_dump())
+                                                                 message=message.dict()).dict())
