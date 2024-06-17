@@ -1,3 +1,5 @@
+# Defines enumerations for message types and other constants
+
 from __future__ import annotations
 
 import enum

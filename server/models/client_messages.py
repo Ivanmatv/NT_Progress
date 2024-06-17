@@ -1,3 +1,5 @@
+# Defines client message formats
+
 from __future__ import annotations
 
 import decimal
